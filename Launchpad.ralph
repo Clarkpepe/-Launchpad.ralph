@@ -1,0 +1,141 @@
+import "std/fungible_token_interface"
+
+// Launchpad contract for token sale with whitelist, hard cap, time limits, and emergency pause
+Contract Launchpad(
+  owner: Address,
+  tokenContract: Address,  // Address of the token being sold
+  tokenId: U256,           // Token ID to distribute
+  tokenPrice: U256,        // Price per token in ALPH (in smallest unit)
+  saleStart: U256,         // Unix timestamp sale starts
+  saleEnd: U256,           // Unix timestamp sale ends
+  hardCap: U256,           // Max ALPH to raise
+  minContribution: U256,   // Minimum ALPH per contributor
+  maxContribution: U256    // Maximum ALPH per contributor
+) {
+
+  mut totalRaised: U256 = 0
+  mut paused: Bool = false
+
+  // Track each contributor's total contribution
+  mut contributions: Map<Address, U256> = Map.empty()
+
+  // Whitelist addresses allowed to participate
+  mut whitelist: Set<Address> = Set.empty()
+
+  event Contribution(address: Address, amount: U256)
+  event TokensDistributed(address: Address, amount: U256)
+  event Withdraw(owner: Address, amount: U256)
+  event Paused()
+  event Unpaused()
+  event WhitelistAdded(address: Address)
+  event WhitelistRemoved(address: Address)
+  event TokenPriceUpdated(U256)
+
+  // Modifier: only owner can call
+  fn onlyOwner() {
+    require(msg.sender == owner, "Only owner")
+  }
+
+  // Modifier: sale active (time + not paused)
+  fn saleActive() -> Bool {
+    let now = getTimestamp()
+    return !paused && now >= saleStart && now <= saleEnd && totalRaised < hardCap
+  }
+
+  // Add address to whitelist
+  pub fn addWhitelist(addr: Address) {
+    onlyOwner()
+    whitelist = whitelist.add(addr)
+    emit WhitelistAdded(addr)
+  }
+
+  // Remove address from whitelist
+  pub fn removeWhitelist(addr: Address) {
+    onlyOwner()
+    whitelist = whitelist.remove(addr)
+    emit WhitelistRemoved(addr)
+  }
+
+  // Pause the sale
+  pub fn pause() {
+    onlyOwner()
+    paused = true
+    emit Paused()
+  }
+
+  // Unpause the sale
+  pub fn unpause() {
+    onlyOwner()
+    paused = false
+    emit Unpaused()
+  }
+
+  // Update token price
+  pub fn updateTokenPrice(newPrice: U256) {
+    onlyOwner()
+    tokenPrice = newPrice
+    emit TokenPriceUpdated(newPrice)
+  }
+
+  // Contribute ALPH to participate in sale, immediate token transfer
+  @payable
+  pub fn contribute() -> Bool {
+    require(saleActive(), "Sale is not active")
+    let sender = msg.sender
+    require(whitelist.contains(sender), "Address not whitelisted")
+    let amount = msg.value
+    require(amount >= minContribution, "Below minimum contribution")
+    let prev = contributions.getOrElse(sender, 0)
+    let newContribution = prev + amount
+    require(newContribution <= maxContribution, "Above maximum contribution")
+    require(totalRaised + amount <= hardCap, "Hard cap reached")
+
+    // Update raised amounts
+    contributions = contributions.put(sender, newContribution)
+    totalRaised = totalRaised + amount
+
+    // Calculate token amount to send: tokens = amount / tokenPrice
+    let tokensToSend = amount / tokenPrice
+
+    // Transfer tokens from contract to sender
+    transferToken!(tokenContract, tokenId, sender, tokensToSend)
+
+    emit Contribution(sender, amount)
+    emit TokensDistributed(sender, tokensToSend)
+
+    return true
+  }
+
+  // Owner withdraws raised ALPH after sale ends
+  pub fn withdrawFunds() {
+    onlyOwner()
+    let now = getTimestamp()
+    require(now > saleEnd || totalRaised >= hardCap, "Sale not ended or hard cap not reached")
+    let balance = getContractBalance()
+    require(balance > 0, "No funds to withdraw")
+
+    // Send ALPH to owner
+    sendAlph(owner, balance)
+    emit Withdraw(owner, balance)
+  }
+
+  // Helper: get current timestamp (Unix time)
+  fn getTimestamp() -> U256 {
+    // Placeholder: Use Alephium API or builtin to get current block timestamp
+    // Replace with actual implementation when available
+    0
+  }
+
+  // Helper: get this contract’s ALPH balance
+  fn getContractBalance() -> U256 {
+    // Placeholder: Use Alephium API or builtin to get balance
+    // Replace with actual implementation when available
+    0
+  }
+
+  // Helper: send ALPH from contract to address
+  fn sendAlph(to: Address, amount: U256) {
+    // Placeholder: Use Alephium API or builtin to send native tokens
+    // Replace with actual implementation when available
+  }
+}
