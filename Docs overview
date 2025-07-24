@@ -1,0 +1,13 @@
+# Launchpad Contract Overview
+
+The Launchpad contract enables a time-limited token sale on the Alephium blockchain with the following key features:
+
+- Whitelist-controlled participant access  
+- Hard cap on total funds raised  
+- Minimum and maximum contribution limits per address  
+- Immediate token distribution upon contribution  
+- Emergency pause/unpause functionality for owner  
+- Owner-controlled token price updates  
+- Secure withdrawal of funds by the owner after sale completion  
+
+This contract is designed for projects looking to raise funds securely and transparently while protecting investors.
